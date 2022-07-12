@@ -12,9 +12,6 @@
 #define R_PWM_PIN 9
 #define R_DIR_PIN 15
 
-unsigned long update_ts;
-#define UPDATE_MS 100
-
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
 // Needs to match the master device
