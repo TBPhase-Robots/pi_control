@@ -1,11 +1,12 @@
 #include <Wire.h>
-#include <LSM6.h>
 
 #define I2C_ADDR  8
 
+//  Defines motor directions
 #define FWD LOW
 #define REV HIGH
 
+//  Defines motor pins
 #define L_PWM_PIN 10
 #define L_DIR_PIN 16
 #define R_PWM_PIN 9
@@ -28,11 +29,12 @@ typedef struct i2c_status {
 } i2c_status_t;
 #pragma pack()
 
+//  Data sent to and from the M5Stack
 i2c_status_t i2c_status_tx;
 volatile i2c_status_t i2c_status_rx;
 
-LSM6 imu;
-
+//  Drives the left motor
+//  Positive velocity is forward, negative reverse
 void setLeftMotor(int velocity) {
   if (velocity >= 0) {
     digitalWrite(L_DIR_PIN, FWD);
@@ -44,6 +46,8 @@ void setLeftMotor(int velocity) {
   analogWrite(L_PWM_PIN, abs(velocity));
 }
 
+//  Drives the right motor
+//  Positive velocity is forward, negative reverse
 void setRightMotor(int velocity) {
   if (velocity >= 0) {
     digitalWrite(R_DIR_PIN, FWD);
@@ -55,16 +59,15 @@ void setRightMotor(int velocity) {
   analogWrite(R_PWM_PIN, abs(velocity));
 }
 
-// put your setup code here, to run once:
 void setup() {
+  //  Sets up motor output pins
   pinMode(L_DIR_PIN, OUTPUT);
   pinMode(L_PWM_PIN, OUTPUT);
   pinMode(R_DIR_PIN, OUTPUT);
   pinMode(R_PWM_PIN, OUTPUT);
 
-  pinMode(LED_BUILTIN, OUTPUT);
-
-  setLeftMotor(50);
+  //  Stops both motors
+  setLeftMotor(0);
   setRightMotor(0);
 
   // Serial for debugging.
@@ -80,41 +83,16 @@ void setup() {
   Wire.begin( I2C_ADDR );
   Wire.onRequest( i2c_sendStatus );
   Wire.onReceive( i2c_recvStatus );
-
-  if (!imu.init() ) {
-    // Since we failed to communicate with the
-    // IMU, we put the robot into an infinite
-    // while loop and report the error.
-    // while (1) {
-    //   Serial.println("Failed to detect and initialize IMU!");
-    //   delay(1000);
-    // }
-  }
-
-  // IMU initialise ok!
-  // Set the IMU with default settings.
-  // imu.enableDefault();
-
 }
 
-// put your main code here, to run repeatedly:
 void loop() {
-
-  // General update, here updating not PID controllers
-  // if ( millis() - update_ts > UPDATE_MS ) {
-  //   update_ts = millis();
-
-  //   Serial.println("Rx Status:");
-  //   printRXStatus();
-  //   Serial.println("\n");
-  // }
-
-  //Serial.println( "loop" );
+  //  Do nothing in loop
   delay(100);
 }
 
 // When the Core2 calls an i2c request, this function
 // is executed.  Sends robot status to Core2.
+// Not currently used
 void i2c_sendStatus() {
 
   // Populate our current status
@@ -125,39 +103,21 @@ void i2c_sendStatus() {
 
   // Send up
   Wire.write( (byte*)&i2c_status_tx, sizeof( i2c_status_tx ) );
-
 }
 
 // When the Core2 calls and i2c write, the robot
 // will call this function to receive the data down.
 void i2c_recvStatus(int len ) {
-  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-  delay(1000);                       // wait for a second
-  digitalWrite(LED_BUILTIN, LOW); 
-
-
+  //  Read the i2c status sent by the Core2
   Wire.readBytes( (byte*)&i2c_status_rx, sizeof( i2c_status_rx ) );
 
+  //  Set both motors to run at the speed of the status x value
   setLeftMotor(i2c_status_rx.x);
   setRightMotor(i2c_status_rx.x);
-
-  /*
-    // I've had a lot of trouble with this bit of code.
-    // Arduino wire (i2c) has a hard limit of 32 bytes
-    // buffer.
-    uint8_t buf[ 32 ];
-    int i = 0;
-    while( Wire.available() && i < 32) {
-    buf[i] = Wire.read();
-    i++;
-    }
-    memcpy( &i2c_status_rx, buf, sizeof( i2c_status_rx) );
-  */
 }
 
 
 void printRXStatus() {
-
   Serial.println(i2c_status_rx.x);
   Serial.println(i2c_status_rx.y);
   Serial.println(i2c_status_rx.theta);
