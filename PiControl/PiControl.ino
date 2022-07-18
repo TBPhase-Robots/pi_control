@@ -1,4 +1,8 @@
 #include <Wire.h>
+#include "encoders.h"
+#include "kinematics.h"
+
+Kinematics_c kinematics;
 
 #define I2C_ADDR  8
 
@@ -11,6 +15,9 @@
 #define L_DIR_PIN 16
 #define R_PWM_PIN 9
 #define R_DIR_PIN 15
+
+float global_x ;
+float global_y ;
 
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
@@ -29,6 +36,8 @@ typedef struct i2c_status {
 //  Data sent to and from the M5Stack
 i2c_status_t i2c_status_tx;
 volatile i2c_status_t i2c_status_rx;
+
+boolean complete;
 
 //  Drives the left motor
 //  Positive velocity is forward, negative reverse
@@ -56,36 +65,6 @@ void setRightMotor(int velocity) {
   analogWrite(R_PWM_PIN, abs(velocity));
 }
 
-void setup() {
-  //  Sets up motor output pins
-  pinMode(L_DIR_PIN, OUTPUT);
-  pinMode(L_PWM_PIN, OUTPUT);
-  pinMode(R_DIR_PIN, OUTPUT);
-  pinMode(R_PWM_PIN, OUTPUT);
-
-  //  Stops both motors
-  setLeftMotor(0);
-  setRightMotor(0);
-
-  // Serial for debugging.
-  Serial.begin(9600);
-  Serial.println("***RESTART***");
-  delay(1000);
-
-  // Clear out i2c data structs
-  memset( (void*)&i2c_status_tx, 0, sizeof( i2c_status_tx ) );
-  memset( (void*)&i2c_status_rx, 0, sizeof( i2c_status_rx ) );
-
-  // Begin I2C as a slave device.
-  Wire.begin( I2C_ADDR );
-  Wire.onRequest( i2c_sendStatus );
-  Wire.onReceive( i2c_recvStatus );
-}
-
-void loop() {
-  //  Do nothing in loop
-  delay(100);
-}
 
 // When the Core2 calls an i2c request, this function
 // is executed.  Sends robot status to Core2.
@@ -108,9 +87,91 @@ void i2c_recvStatus(int len ) {
   //  Read the i2c status sent by the Core2
   Wire.readBytes( (byte*)&i2c_status_rx, sizeof( i2c_status_rx ) );
 
+  Serial.println((String) "Message recieved");
+
   //  Set both motors to run at the speed of the status x value
-  setLeftMotor(i2c_status_rx.x);
-  setRightMotor(i2c_status_rx.x);
+  //setLeftMotor(i2c_status_rx.x);
+  //setRightMotor(i2c_status_rx.y);
+
+  global_x = i2c_status_rx.x;
+  global_y = i2c_status_rx.y;
+}
+
+
+void setup() {
+  //  Sets up motor output pins
+  pinMode(L_DIR_PIN, OUTPUT);
+  pinMode(L_PWM_PIN, OUTPUT);
+  pinMode(R_DIR_PIN, OUTPUT);
+  pinMode(R_PWM_PIN, OUTPUT);
+
+  //  Stops both motors
+  setLeftMotor(0);
+  setRightMotor(0);
+
+  setupEncoder0();
+  setupEncoder1();
+
+  // Serial for debugging.
+  Serial.begin(9600);
+  Serial.println("***RESTART***");
+  delay(1000);
+
+  // Clear out i2c data structs
+  memset( (void*)&i2c_status_tx, 0, sizeof( i2c_status_tx ) );
+  memset( (void*)&i2c_status_rx, 0, sizeof( i2c_status_rx ) );
+
+  // Begin I2C as a slave device.
+  Wire.begin( I2C_ADDR );
+  Wire.onRequest( i2c_sendStatus );
+  Wire.onReceive( i2c_recvStatus );
+}
+
+void set_z_rotation(float vel) {
+  setLeftMotor(vel*30);
+  setRightMotor(-vel*30);
+}
+
+void loop() {
+  float goal = atan2(global_y,global_x) ;
+
+  float theta = kinematics.currentRotation;
+
+  while (abs(theta) > PI){
+    if (theta > 0){
+      theta -= 2*PI;
+    }
+    else{
+      theta += 2*PI;
+    }
+  }
+  float error = goal - theta;
+  
+  Serial.println((String) "Error before: " + error);
+
+  if (abs(error) > PI){
+    if (error > 0){
+      error -= 2*PI;
+    }
+    else{
+      error += 2*PI;
+    }
+    }
+  if (abs(error)>0.4){
+    float limit = 0.6;
+    /*if (abs(error)< limit){
+      if (error > 0){error = limit;}
+      else {error = -limit;}}*/
+  set_z_rotation(error);}
+  else{
+    set_z_rotation(0);
+  }
+  Serial.println((String) "Error: " + error);
+  Serial.println((String) "Desired angle: " + goal);
+  Serial.println((String) "Angle of robot:" + theta); 
+//  //  Do nothing in loop
+  kinematics.updateLoop();
+  delay(100);
 }
 
 
