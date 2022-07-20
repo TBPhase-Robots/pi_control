@@ -101,7 +101,7 @@ void i2c_recvStatus(int len ) {
 
   Serial.println((String) "Angle" + angle);
 
-  goal = kinematics.currentRotation + atan2(global_y,global_x) ;
+  goal = -kinematics.currentRotation + atan2(global_y,global_x) ;
   Serial.println((String) "goal " + goal);
 }
 
@@ -137,8 +137,8 @@ void setup() {
 }
 
 void set_z_rotation(float vel) {
-  setLeftMotor(vel*30);
-  setRightMotor(-vel*30);
+  setLeftMotor(-vel*30);
+  setRightMotor(vel*30);
 }
 
 void go_forward(float vel){
@@ -148,7 +148,7 @@ void go_forward(float vel){
 
 void loop() {
 
-  float theta = kinematics.currentRotation;
+  float theta = -kinematics.currentRotation; // make minus as this gives angle in clockwise rotation (we're using anticlockwise)
 
   while (abs(theta) > PI){
     if (theta > 0){
@@ -168,11 +168,11 @@ void loop() {
       error += 2*PI;
     }
     }
-  if (abs(error)>0.2){
-    float limit = 0.6;
-    if (abs(error)< limit){
-      if (error > 0){error = limit;}
-      else {error = -limit;}}
+  if (abs(error)>0.1){
+    if (abs(error)<0.5){
+    float limit = 0.5;
+    if (error > 0){error = limit;}
+    else {error = -limit;}}
   set_z_rotation(error);}
   else{
     set_z_rotation(0);
@@ -185,7 +185,7 @@ void loop() {
   Serial.println((String) "y:" + global_y); 
 //  //  Do nothing in loop
   kinematics.updateLoop();
-  delay(1000);
+  delay(100);
 }
 
 
