@@ -18,6 +18,7 @@ Kinematics_c kinematics;
 
 float global_x ;
 float global_y ;
+float goal ;
 
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
@@ -95,8 +96,14 @@ void i2c_recvStatus(int len ) {
 
   global_x = i2c_status_rx.x;
   global_y = i2c_status_rx.y;
-}
 
+  float angle = atan2(global_y,global_x);
+
+  Serial.println((String) "Angle" + angle);
+
+  goal = kinematics.currentRotation + atan2(global_y,global_x) ;
+  Serial.println((String) "goal " + goal);
+}
 
 void setup() {
   //  Sets up motor output pins
@@ -125,6 +132,8 @@ void setup() {
   Wire.begin( I2C_ADDR );
   Wire.onRequest( i2c_sendStatus );
   Wire.onReceive( i2c_recvStatus );
+
+  goal = 0.0;
 }
 
 void set_z_rotation(float vel) {
@@ -132,8 +141,12 @@ void set_z_rotation(float vel) {
   setRightMotor(-vel*30);
 }
 
+void go_forward(float vel){
+  setLeftMotor(vel);
+  setRightMotor(vel);
+}
+
 void loop() {
-  float goal = atan2(global_y,global_x) ;
 
   float theta = kinematics.currentRotation;
 
@@ -146,8 +159,6 @@ void loop() {
     }
   }
   float error = goal - theta;
-  
-  Serial.println((String) "Error before: " + error);
 
   if (abs(error) > PI){
     if (error > 0){
@@ -157,21 +168,24 @@ void loop() {
       error += 2*PI;
     }
     }
-  if (abs(error)>0.4){
+  if (abs(error)>0.2){
     float limit = 0.6;
-    /*if (abs(error)< limit){
+    if (abs(error)< limit){
       if (error > 0){error = limit;}
-      else {error = -limit;}}*/
+      else {error = -limit;}}
   set_z_rotation(error);}
   else{
     set_z_rotation(0);
+    //go_forward(20.0);
   }
   Serial.println((String) "Error: " + error);
   Serial.println((String) "Desired angle: " + goal);
-  Serial.println((String) "Angle of robot:" + theta); 
+  //Serial.println((String) "Angle of robot:" + theta); 
+  Serial.println((String) "x: " + global_x);
+  Serial.println((String) "y:" + global_y); 
 //  //  Do nothing in loop
   kinematics.updateLoop();
-  delay(100);
+  delay(1000);
 }
 
 
