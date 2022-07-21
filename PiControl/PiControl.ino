@@ -1,3 +1,5 @@
+/* Will take a Vector3 ROS message and turn the robot to that angle. Make sure it is sent in the robots frame by rotating the vector */
+
 #include <Wire.h>
 #include "encoders.h"
 #include "kinematics.h"
@@ -165,7 +167,7 @@ void loop() {
     }
   }
 
-  if (abs(error) > PI){
+  while (abs(error) > PI){
     if (error > 0){
       error -= 2*PI;
     }
@@ -174,6 +176,7 @@ void loop() {
     }
     }
   if (abs(error)>0.1){
+<<<<<<< Updated upstream
     float limit = 0.75;
     if (abs(error) < limit){
       if (error > 0) {
@@ -184,6 +187,21 @@ void loop() {
       }
     }
     set_z_rotation(error);
+=======
+    if (abs(error)<0.5){
+      float low_limit = 0.5;
+      if (error > 0){error = low_limit;}
+      else {error = -low_limit;}}
+    if (abs(error) > 1.0){
+      float up_limit = 1.0;
+      if (error > 0){error = up_limit;}
+      else {error = -up_limit;}}
+    
+  set_z_rotation(error);}
+  else{
+    set_z_rotation(0);
+    go_forward(20.0);
+>>>>>>> Stashed changes
   }
   else {
     set_z_rotation(0);
