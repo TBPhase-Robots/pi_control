@@ -16,9 +16,9 @@ Kinematics_c kinematics;
 #define R_PWM_PIN 9
 #define R_DIR_PIN 15
 
-float global_x ;
-float global_y ;
-float goal ;
+float global_x = 0;
+float global_y = 10;
+float goal = 0;
 
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
@@ -96,12 +96,14 @@ void i2c_recvStatus(int len ) {
 
   global_x = i2c_status_rx.x;
   global_y = i2c_status_rx.y;
+  kinematics.currentRotation = -i2c_status_rx.theta - PI/2;
 
   float angle = atan2(global_y,global_x);
 
   Serial.println((String) "Angle" + angle);
 
-  goal = -kinematics.currentRotation + atan2(global_y,global_x) ;
+  // goal = -kinematics.currentRotation + atan2(global_y,global_x) ;
+  goal = angle;
   Serial.println((String) "goal " + goal);
 }
 
@@ -149,7 +151,11 @@ void go_forward(float vel){
 void loop() {
 
   float theta = -kinematics.currentRotation; // make minus as this gives angle in clockwise rotation (we're using anticlockwise)
-
+  float error = goal - theta;
+  if (global_x == 0.0 && global_y == 0.0){
+    go_forward(0.0);
+  }
+  else{
   while (abs(theta) > PI){
     if (theta > 0){
       theta -= 2*PI;
@@ -158,7 +164,6 @@ void loop() {
       theta += 2*PI;
     }
   }
-  float error = goal - theta;
 
   if (abs(error) > PI){
     if (error > 0){
@@ -169,21 +174,29 @@ void loop() {
     }
     }
   if (abs(error)>0.1){
-    if (abs(error)<0.5){
-    float limit = 0.5;
-    if (error > 0){error = limit;}
-    else {error = -limit;}}
-  set_z_rotation(error);}
-  else{
-    set_z_rotation(0);
-    //go_forward(20.0);
+    float limit = 0.75;
+    if (abs(error) < limit){
+      if (error > 0) {
+        error = limit;
+      }
+      else {
+        error = -limit;
+      }
+    }
+    set_z_rotation(error);
   }
+  else {
+    set_z_rotation(0);
+    if (global_x * global_x + global_y * global_y > 0.001) {
+      go_forward(50.0);
+    }
+  }}
   Serial.println((String) "Error: " + error);
   Serial.println((String) "Desired angle: " + goal);
-  //Serial.println((String) "Angle of robot:" + theta); 
+  Serial.println((String) "Angle of robot:" + theta); 
   Serial.println((String) "x: " + global_x);
   Serial.println((String) "y:" + global_y); 
-//  //  Do nothing in loop
+
   kinematics.updateLoop();
   delay(100);
 }
