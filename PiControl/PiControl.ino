@@ -16,10 +16,8 @@ Kinematics_c kinematics;
 #define R_PWM_PIN 9
 #define R_DIR_PIN 15
 
-float global_x = 0;
-float global_y = 10;
-float goal = 0;
-float last_angle = 0.0;
+float global_x ;
+float global_y ;
 
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
@@ -38,6 +36,8 @@ typedef struct i2c_status {
 //  Data sent to and from the M5Stack
 i2c_status_t i2c_status_tx;
 volatile i2c_status_t i2c_status_rx;
+
+boolean complete;
 
 //  Drives the left motor
 //  Positive velocity is forward, negative reverse
@@ -87,7 +87,7 @@ void i2c_recvStatus(int len ) {
   //  Read the i2c status sent by the Core2
   Wire.readBytes( (byte*)&i2c_status_rx, sizeof( i2c_status_rx ) );
 
-  //Serial.println((String) "Message recieved");
+  Serial.println((String) "Message recieved");
 
   //  Set both motors to run at the speed of the status x value
   //setLeftMotor(i2c_status_rx.x);
@@ -95,29 +95,8 @@ void i2c_recvStatus(int len ) {
 
   global_x = i2c_status_rx.x;
   global_y = i2c_status_rx.y;
-
-  float new_angle = -i2c_status_rx.theta - PI/2; // kept updating it with old frames even when the camera wasn't seeing the glyph... causing the robots to spin when not on camera
-
-  if (new_angle != last_angle){
-    float current_angle = -i2c_status_rx.theta - PI/2;
-    while (abs(current_angle)>PI){
-      if (current_angle > 0){
-        current_angle -= 2*PI;
-    }
-      else{
-        current_angle += 2*PI;
-    }
-    }
-    kinematics.currentRotation = current_angle;
-    Serial.println((String) "Rotation set : " + kinematics.currentRotation);}
-
-  last_angle = new_angle;
-
-  float angle = atan2(global_y,global_x);
-  
-  //Serial.println((String) "Angle" + angle);
-  goal = angle;
 }
+
 
 void setup() {
   //  Sets up motor output pins
@@ -146,23 +125,18 @@ void setup() {
   Wire.begin( I2C_ADDR );
   Wire.onRequest( i2c_sendStatus );
   Wire.onReceive( i2c_recvStatus );
-
-  goal = atan2(global_y,global_x);
 }
 
 void set_z_rotation(float vel) {
-  setLeftMotor(-vel*30);
-  setRightMotor(vel*30);
-}
-
-void go_forward(float vel){
-  setLeftMotor(vel);
-  setRightMotor(vel);
+  setLeftMotor(vel*30);
+  setRightMotor(-vel*30);
 }
 
 void loop() {
+  float goal = atan2(global_y,global_x) ;
 
-  float theta = -kinematics.currentRotation; // make minus as this gives angle in clockwise rotation (we're using anticlockwise
+  float theta = kinematics.currentRotation;
+
   while (abs(theta) > PI){
     if (theta > 0){
       theta -= 2*PI;
@@ -172,7 +146,10 @@ void loop() {
     }
   }
   float error = goal - theta;
-  while (abs(error) > PI){
+  
+  Serial.println((String) "Error before: " + error);
+
+  if (abs(error) > PI){
     if (error > 0){
       error -= 2*PI;
     }
@@ -180,39 +157,19 @@ void loop() {
       error += 2*PI;
     }
     }
-  //Serial.println((String) "Error before: " + error);
-  if (abs(error)>0.2){
-    float limit = 0.75;
-    if (abs(error) < limit){
-      if (error > 0) {
-        error = limit;
-      }
-      else {
-        error = -limit;
-      }
-    }
-    if (abs(error) > 1.0){
-      if (error > 0) {
-        error = 1.0;
-      }
-      else {
-        error = -1.0;
-      }
-    }
-    //Serial.println((String) "Error: " + error);
-    set_z_rotation(error);
-  }
-  else {
+  if (abs(error)>0.4){
+    float limit = 0.6;
+    /*if (abs(error)< limit){
+      if (error > 0){error = limit;}
+      else {error = -limit;}}*/
+  set_z_rotation(error);}
+  else{
     set_z_rotation(0);
-    if (global_x * global_x + global_y * global_y > 0.001) {
-      go_forward(30.0);
-    }
   }
-  /*Serial.println((String) "Desired angle: " + goal);
-  Serial.println((String) "Angle of robot:" + theta);
-  Serial.println((String) "x: " + global_x);
-  Serial.println((String) "y:" + global_y);*/
-
+  Serial.println((String) "Error: " + error);
+  Serial.println((String) "Desired angle: " + goal);
+  Serial.println((String) "Angle of robot:" + theta); 
+//  //  Do nothing in loop
   kinematics.updateLoop();
   delay(100);
 }
