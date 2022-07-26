@@ -11,7 +11,7 @@ Kinematics_c kinematics;
 #define REV HIGH
 
 #define SPEED_SCALE (255.0 / 1.5)
-#define MAX_SPEED 0.75
+#define MAX_SPEED 0.4
 
 //  Defines motor pins
 #define L_PWM_PIN 10
@@ -219,6 +219,9 @@ void loop()
       }
       else {
         speed *= SPEED_SCALE;
+        if (speed < 20.0) {
+          speed = 20.0;
+        }
         go_forward(speed);
       }
     }
